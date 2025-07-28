@@ -1,0 +1,113 @@
+#Planteamiento del problema
+
+se deben de crear 2 tablas una de empleados con su nombre, puesto,fecha de ingreso 
+y salario y un tabulador de puestos con el nombre del puesto, los dias necesarios
+para tener ese puesto y el salario del puesto. 
+
+se muestra el diagrama ER que planteamos como solucion.
+(DiagramaER.png) 
+
+#Procedimiento en codigo
+CREATE DATABASE EMPRESA;
+USE EMPRESA;
+CREATE TABLE Empleados (
+  id INT AUTO_INCREMENT PRIMARY KEY,      
+  nombre VARCHAR(100),                    
+  fecha_de_ingreso DATE,                  
+  salario DECIMAL(10,2),                 
+  categoria VARCHAR(100)                 
+);
+// creamos la tabla empleados
+
+
+CREATE TABLE Tabulador (
+  id INT AUTO_INCREMENT PRIMARY KEY,      
+  nombre_puesto VARCHAR(100),             
+  sueldo DECIMAL (10,2),                              
+  dias_antiguedad INT                     
+);
+// creamos la tabla tabulador
+
+INSERT INTO Tabulador (nombre_puesto, sueldo, dias_antiguedad) VALUES 
+('Trainee', 1000.00, 1),
+('Dev Junior', 5000.00, 12),
+('Dev Senior', 10000.00, 20);
+
+//asignamos 3 roles de prueba
+
+INSERT INTO Empleados (nombre, fecha_de_ingreso, salario, categoria) VALUES
+('Ana Torres',      CURDATE() - INTERVAL 1 DAY,   0.00, 'Por definir'),
+('Luis Gómez',      CURDATE() - INTERVAL 2 DAY,   0.00, 'Por definir'),
+('María López',     CURDATE() - INTERVAL 3 DAY,   0.00, 'Por definir'),
+('Carlos Méndez',   CURDATE() - INTERVAL 5 DAY,   0.00, 'Por definir'),
+('Julia Ríos',      CURDATE() - INTERVAL 7 DAY,   0.00, 'Por definir'),
+('Pedro Jiménez',   CURDATE() - INTERVAL 9 DAY,   0.00, 'Por definir'),
+('Lucía Castro',    CURDATE() - INTERVAL 10 DAY,  0.00, 'Por definir'),
+('Miguel Serrano',  CURDATE() - INTERVAL 12 DAY,  0.00, 'Por definir'),
+('Elena Vargas',    CURDATE() - INTERVAL 15 DAY,  0.00, 'Por definir'),
+('Jorge Peña',      CURDATE() - INTERVAL 18 DAY,  0.00, 'Por definir'),
+('Valeria Cruz',    CURDATE() - INTERVAL 20 DAY,  0.00, 'Por definir'),
+('Santiago Ruiz',   CURDATE() - INTERVAL 22 DAY,  0.00, 'Por definir'),
+('Gabriela Mora',   CURDATE() - INTERVAL 25 DAY,  0.00, 'Por definir'),
+('Hugo Castillo',   CURDATE() - INTERVAL 27 DAY,  0.00, 'Por definir'),
+('Laura Fernández', CURDATE() - INTERVAL 30 DAY,  0.00, 'Por definir');
+// llenamos la tabla empleados con datos de prueba decidi ponerlos sin sueldo y por definir
+para una lectura y comprobar mas facil que los cambios se hagan
+
+
+
+DELIMITER $$
+
+CREATE PROCEDURE ActualizarSalarioYCategoria()
+BEGIN
+  UPDATE Empleados e
+  JOIN (
+    SELECT 
+      e.id,
+      t.nombre_puesto,
+      t.sueldo
+    FROM Empleados e
+    JOIN Tabulador t
+      ON DATEDIFF(CURDATE(), e.fecha_de_ingreso) >= t.dias_antiguedad
+    WHERE
+      (t.dias_antiguedad = (
+         SELECT MAX(t2.dias_antiguedad)
+         FROM Tabulador t2
+         WHERE DATEDIFF(CURDATE(), e.fecha_de_ingreso) >= t2.dias_antiguedad
+       ))
+  ) AS sub
+  ON e.id = sub.id
+  SET 
+    e.salario = sub.sueldo,
+    e.categoria = sub.nombre_puesto;
+END$$
+
+DELIMITER ;
+// creamos un store procedure que actualiza el salario y la categoria usando un join 
+de las tablas empleados y tabulador, sacamos la diferencia entre la fecha actual
+y la fecha de ingreso (atributo de la tabla empleados) luego comparamos esa diferencia
+con Tabulador t2 es una tabla con rangos de días mínimos para cada puesto (ejemplo: 1, 12, 20).
+con WHERE DATEDIFF(CURDATE(), e.fecha_de_ingreso) >= t2.dias_antiguedad
+filtramos puestos cuyo requisito de antigüedad es menor o igual que la antigüedad del empleado. 
+con SELECT MAX(t2.dias_antiguedad) busca el valor máximo entre esos requisitos menores o iguales.
+
+CREATE EVENT IF NOT EXISTS evento_actualizar_salarios_y_categorias
+ON SCHEDULE EVERY 1 DAY
+STARTS CURRENT_DATE + INTERVAL 2 HOUR  
+DO
+  CALL ActualizarSalarioYCategoria()
+// creamos el evento que va a llamar a al store procedure
+
+#fase de pruebas
+
+Se muestra el contenido de la tabla empleados antes de aplicar el store procedure
+(EmpleadosInicial.png)
+se muestra que se genero exitosamente el store procedure en la base de datos empresa
+y se llama manualmente para pruebas
+(StoreProcedure.png)
+
+se vuelve a mostrar la tabla empleados para verificar el correcto funcionamiento del 
+store procedure 
+(EmpleadosPrueba.png)
+
+
